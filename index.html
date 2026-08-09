@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaxDeclara Pro - Gestión de Declaraciones de Renta (Binance Theme)</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- SheetJS (XLSX) for Excel import/export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- React & Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Google Fonts: Inter (BinanceNova substitute) + IBM Plex Sans (BinancePlex substitute for financial numbers) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            binance: {
+              canvas: '#0b0e11',        // {colors.canvas-dark}
+              card: '#1e2329',          // {colors.surface-card-dark}
+              elevated: '#2b3139',      // {colors.surface-elevated-dark}
+              yellow: '#FCD535',        // {colors.primary} Binance Yellow
+              yellowHover: '#f0b90b',   // {colors.primary-active}
+              yellowDisabled: '#3a3a1f',// {colors.primary-disabled}
+              ink: '#181a20',           // {colors.ink}
+              hairline: '#2b3139',      // {colors.hairline-on-dark}
+              hairlineLight: '#eaecef', // {colors.hairline-on-light}
+              bodyText: '#eaecef',      // {colors.body}
+              muted: '#707a8a',         // {colors.muted}
+              mutedStrong: '#929aa5',   // {colors.muted-strong}
+              green: '#0ecb81',        // {colors.trading-up}
+              red: '#f6465d',          // {colors.trading-down}
+              footer: '#fafafa',       // {colors.surface-soft-light}
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            plex: ['IBM Plex Sans', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Binance styling rules */
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0b0e11;
+      color: #eaecef;
+    }
+
+    .font-num {
+      font-family: 'IBM Plex Sans', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Custom scrollbars matching dark interface */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b0e11;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2b3139;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #707a8a;
+    }
+  </style>
+</head>
+<body class="bg-[#0b0e11] text-[#eaecef] antialiased min-h-screen flex flex-col justify-between selection:bg-[#FCD535] selection:text-[#181a20]">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // Default required documents checklist for income tax declarations
+    const DEFAULT_DOCUMENTS = [
+      { id: 'cert_ingresos', name: 'Certificado de Ingresos y Retenciones (Formulario 220)', required: true },
+      { id: 'extractos_bancarios', name: 'Extractos Bancarios a 31 de Diciembre', required: true },
+      { id: 'cert_prepagada', name: 'Certificado de Medicina Prepagada o Salud', required: false },
+      { id: 'impuesto_predial', name: 'Recibos de Impuesto Predial (Bienes Inmuebles)', required: false },
+      { id: 'impuesto_vehiculo', name: 'Impuesto de Vehículos', required: false },
+      { id: 'cert_deudas', name: 'Certificados de Deudas / Créditos Hipotecarios o Consumo', required: false },
+      { id: 'cert_pensiones', name: 'Certificados de Aportes a Pensiones Voluntarias / AFC', required: false },
+      { id: 'dependientes', name: 'Soportes de Dependientes Económicos (Registro Civil/Certificados)', required: false }
+    ];
+
+    // Official DIAN 2026 Due Date Calculation Rule (Persona Natural)
+    function calculateDianDueDate(nit) {
+      if (!nit) return '';
+      const cleanNit = String(nit).replace(/\D/g, '');
+      if (!cleanNit) return '';
+      
+      const lastTwo = parseInt(cleanNit.slice(-2), 10);
+      if (isNaN(lastTwo)) return '';
+
+      if (lastTwo >= 1 && lastTwo <= 2) return '2026-08-12';
+      if (lastTwo >= 3 && lastTwo <= 4) return '2026-08-13';
+      if (lastTwo >= 5 && lastTwo <= 6) return '2026-08-14';
+      if (lastTwo >= 7 && lastTwo <= 8) return '2026-08-18';
+      if (lastTwo >= 9 && lastTwo <= 10) return '2026-08-19';
+      if (lastTwo >= 11 && lastTwo <= 12) return '2026-08-20';
+      if (lastTwo >= 13 && lastTwo <= 14) return '2026-08-21';
+      if (lastTwo >= 15 && lastTwo <= 16) return '2026-08-24';
+      if (lastTwo >= 17 && lastTwo <= 18) return '2026-08-25';
+      if (lastTwo >= 19 && lastTwo <= 20) return '2026-08-26';
+      if (lastTwo >= 21 && lastTwo <= 22) return '2026-08-27';
+      if (lastTwo >= 23 && lastTwo <= 24) return '2026-08-28';
+      if (lastTwo >= 25 && lastTwo <= 26) return '2026-08-31';
+
+      if (lastTwo >= 27 && lastTwo <= 28) return '2026-09-01';
+      if (lastTwo >= 29 && lastTwo <= 30) return '2026-09-02';
+      if (lastTwo >= 31 && lastTwo <= 32) return '2026-09-03';
+      if (lastTwo >= 33 && lastTwo <= 34) return '2026-09-04';
+      if (lastTwo >= 35 && lastTwo <= 36) return '2026-09-07';
+      if (lastTwo >= 37 && lastTwo <= 38) return '2026-09-08';
+      if (lastTwo >= 39 && lastTwo <= 40) return '2026-09-09';
+      if (lastTwo >= 41 && lastTwo <= 42) return '2026-09-10';
+      if (lastTwo >= 43 && lastTwo <= 44) return '2026-09-11';
+      if (lastTwo >= 45 && lastTwo <= 46) return '2026-09-14';
+      if (lastTwo >= 47 && lastTwo <= 48) return '2026-09-15';
+      if (lastTwo >= 49 && lastTwo <= 50) return '2026-09-16';
+      if (lastTwo >= 51 && lastTwo <= 52) return '2026-09-17';
+      if (lastTwo >= 53 && lastTwo <= 54) return '2026-09-18';
+      if (lastTwo >= 55 && lastTwo <= 56) return '2026-09-21';
+      if (lastTwo >= 57 && lastTwo <= 58) return '2026-09-22';
+      if (lastTwo >= 59 && lastTwo <= 60) return '2026-09-23';
+      if (lastTwo >= 61 && lastTwo <= 62) return '2026-09-24';
+      if (lastTwo >= 63 && lastTwo <= 64) return '2026-09-25';
+      if (lastTwo >= 65 && lastTwo <= 66) return '2026-09-28';
+      if (lastTwo >= 67 && lastTwo <= 68) return '2026-09-29';
+      if (lastTwo >= 69 && lastTwo <= 70) return '2026-09-30';
+
+      if (lastTwo >= 71 && lastTwo <= 72) return '2026-10-01';
+      if (lastTwo >= 73 && lastTwo <= 74) return '2026-10-02';
+      if (lastTwo >= 75 && lastTwo <= 76) return '2026-10-05';
+      if (lastTwo >= 77 && lastTwo <= 78) return '2026-10-06';
+      if (lastTwo >= 79 && lastTwo <= 80) return '2026-10-07';
+      if (lastTwo >= 81 && lastTwo <= 82) return '2026-10-08';
+      if (lastTwo >= 83 && lastTwo <= 84) return '2026-10-09';
+      if (lastTwo >= 85 && lastTwo <= 86) return '2026-10-13';
+      if (lastTwo >= 87 && lastTwo <= 88) return '2026-10-14';
+      if (lastTwo >= 89 && lastTwo <= 90) return '2026-10-15';
+      if (lastTwo >= 91 && lastTwo <= 92) return '2026-10-16';
+      if (lastTwo >= 93 && lastTwo <= 94) return '2026-10-19';
+      if (lastTwo >= 95 && lastTwo <= 96) return '2026-10-20';
+      if (lastTwo >= 97 && lastTwo <= 98) return '2026-10-21';
+      if (lastTwo >= 99 || lastTwo === 0) return '2026-10-22';
+
+      return '2026-10-26';
+    }
+
+    function getLastTwoDigits(nit) {
+      if (!nit) return '--';
+      const clean = String(nit).replace(/\D/g, '');
+      if (clean.length < 2) return clean.padStart(2, '0');
+      return clean.slice(-2);
+    }
+
+    function App() {
+      // Load initial state from LocalStorage
+      const [clients, setClients] = useState(() => {
+        const saved = localStorage.getItem('tax_declara_clients_v3');
+        if (saved) {
+          try { return JSON.parse(saved); } catch (e) { console.error(e); }
+        }
+        return [
+          {
+            id: '1',
+            name: 'Carlos Alberto Rodríguez',
+            nit: '1018452389',
+            phone: '3104567890',
+            dueDate: calculateDianDueDate('1018452389'),
+            documents: DEFAULT_DOCUMENTS.map(d => ({ ...d, completed: false })),
+            taxAmount: 2450000,
+            status: 'Pendiente'
+          },
+          {
+            id: '2',
+            name: 'María Fernanda Gómez',
+            nit: '52894105',
+            phone: '3159876543',
+            dueDate: calculateDianDueDate('52894105'),
+            documents: DEFAULT_DOCUMENTS.map(d => ({ ...d, completed: true })),
+            taxAmount: 1120000,
+            status: 'Listo'
+          }
+        ];
+      });
+
+      const [activeTab, setActiveTab] = useState('clients'); // 'clients', 'dueDates', 'checklist', 'whatsapp'
+      const [searchTerm, setSearchTerm] = useState('');
+      
+      // Modal / Form States
+      const [isAddingClient, setIsAddingClient] = useState(false);
+      const [editingClientId, setEditingClientId] = useState(null);
+      const [deletingClientId, setDeletingClientId] = useState(null);
+      
+      // Client Form
+      const [formData, setFormData] = useState({ name: '', nit: '', phone: '' });
+
+      // Selected client for WhatsApp notice generator
+      const [selectedClientForNotice, setSelectedClientForNotice] = useState(null);
+      const [noticeTaxValue, setNoticeTaxValue] = useState('');
+      const [noticeDueDate, setNoticeDueDate] = useState('');
+      const [noticePhone, setNoticePhone] = useState('');
+      const [copiedNotice, setCopiedNotice] = useState(false);
+      
+      // Notification banner
+      const [importNotice, setImportNotice] = useState(null);
+
+      // Re-initialize Lucide icons on state changes
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      });
+
+      // Save to LocalStorage
+      useEffect(() => {
+        localStorage.setItem('tax_declara_clients_v3', JSON.stringify(clients));
+      }, [clients]);
+
+      // Handle NIT change
+      const handleNitChange = (val) => {
+        setFormData(prev => ({ ...prev, nit: val }));
+      };
+
+      // Create new client
+      const handleCreateClient = (e) => {
+        e.preventDefault();
+        if (!formData.name || !formData.nit) return;
+
+        const computedDueDate = calculateDianDueDate(formData.nit);
+
+        const newClient = {
+          id: Date.now().toString(),
+          name: formData.name,
+          nit: formData.nit,
+          phone: formData.phone || '',
+          dueDate: computedDueDate,
+          documents: DEFAULT_DOCUMENTS.map(d => ({ ...d, completed: false })),
+          taxAmount: 0,
+          status: 'Pendiente'
+        };
+
+        setClients(prev => [newClient, ...prev]);
+        setFormData({ name: '', nit: '', phone: '' });
+        setIsAddingClient(false);
+      };
+
+      // Start editing
+      const handleStartEdit = (client) => {
+        setEditingClientId(client.id);
+        setFormData({
+          name: client.name,
+          nit: client.nit,
+          phone: client.phone || ''
+        });
+      };
+
+      // Save edit
+      const handleSaveEdit = (e) => {
+        e.preventDefault();
+        const computedDueDate = calculateDianDueDate(formData.nit);
+
+        setClients(prev => prev.map(c => {
+          if (c.id === editingClientId) {
+            return {
+              ...c,
+              name: formData.name,
+              nit: formData.nit,
+              phone: formData.phone,
+              dueDate: computedDueDate
+            };
+          }
+          return c;
+        }));
+
+        setEditingClientId(null);
+        setFormData({ name: '', nit: '', phone: '' });
+      };
+
+      // Confirm Delete
+      const handleConfirmDelete = (id) => {
+        setClients(prev => prev.filter(c => c.id !== id));
+        setDeletingClientId(null);
+      };
+
+      // Recalculate all dates according to DIAN 2026
+      const handleRecalculateAllDates = () => {
+        setClients(prev => prev.map(c => ({
+          ...c,
+          dueDate: calculateDianDueDate(c.nit)
+        })));
+        setImportNotice('¡Fechas de vencimiento recalculadas según el calendario DIAN 2026!');
+        setTimeout(() => setImportNotice(null), 4000);
+      };
+
+      // Excel Import handler
+      const handleExcelImport = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const bstr = evt.target.result;
+            const wb = XLSX.read(bstr, { type: 'binary' });
+            const wsname = wb.SheetNames[0];
+            const ws = wb.Sheets[wsname];
+            const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+            if (data.length < 2) {
+              setImportNotice('El archivo no contiene suficientes filas.');
+              return;
+            }
+
+            const headers = data[0].map(h => String(h || '').toLowerCase().trim());
+            const nameIdx = headers.findIndex(h => h.includes('nombre') || h.includes('cliente'));
+            const nitIdx = headers.findIndex(h => h.includes('cedula') || h.includes('cédula') || h.includes('nit') || h.includes('no. cedula'));
+            const phoneIdx = headers.findIndex(h => h.includes('celular') || h.includes('telefono') || h.includes('teléfono') || h.includes('móvil'));
+
+            let updatedCount = 0;
+            let addedCount = 0;
+
+            setClients(prevClients => {
+              const clientMap = new Map();
+              prevClients.forEach(c => {
+                const cleanNit = String(c.nit).replace(/\D/g, '');
+                clientMap.set(cleanNit, { ...c });
+              });
+
+              for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                if (!row || row.length === 0) continue;
+
+                const nameVal = nameIdx !== -1 && row[nameIdx] ? String(row[nameIdx]).trim() : '';
+                const nitVal = nitIdx !== -1 && row[nitIdx] ? String(row[nitIdx]).trim() : '';
+                const phoneVal = phoneIdx !== -1 && row[phoneIdx] ? String(row[phoneIdx]).trim() : '';
+
+                if (!nameVal && !nitVal) continue;
+
+                const cleanNit = String(nitVal).replace(/\D/g, '');
+                const computedDate = calculateDianDueDate(nitVal);
+
+                if (clientMap.has(cleanNit) && cleanNit !== '') {
+                  const existing = clientMap.get(cleanNit);
+                  clientMap.set(cleanNit, {
+                    ...existing,
+                    name: nameVal || existing.name,
+                    phone: phoneVal || existing.phone,
+                    dueDate: computedDate || existing.dueDate
+                  });
+                  updatedCount++;
+                } else {
+                  const newId = Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
+                  clientMap.set(cleanNit || newId, {
+                    id: newId,
+                    name: nameVal || 'Cliente ' + i,
+                    nit: nitVal,
+                    phone: phoneVal,
+                    dueDate: computedDate,
+                    documents: DEFAULT_DOCUMENTS.map(d => ({ ...d, completed: false })),
+                    taxAmount: 0,
+                    status: 'Pendiente'
+                  });
+                  addedCount++;
+                }
+              }
+
+              return Array.from(clientMap.values());
+            });
+
+            setImportNotice(`¡Importación exitosa! ${addedCount} creados, ${updatedCount} actualizados.`);
+            setTimeout(() => setImportNotice(null), 5000);
+
+          } catch (err) {
+            console.error(err);
+            setImportNotice('Error al procesar el archivo Excel/CSV.');
+          }
+        };
+        reader.readAsBinaryString(file);
+        e.target.value = '';
+      };
+
+      // Download Excel template
+      const handleDownloadTemplate = () => {
+        const sampleData = [
+          ['Nombre', 'No. Cedula', 'Numero Celular'],
+          ['Juan Pablo Pérez', '1019283746', '3001234567'],
+          ['Ana Lucía Martínez', '51829304', '3129876543'],
+          ['Roberto Gómez', '79823412', '3155558899']
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(sampleData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Plantilla_Clientes");
+        XLSX.writeFile(wb, "Plantilla_Importacion_Clientes_TaxDeclara.xlsx");
+      };
+
+      // Document checklist toggle
+      const toggleDocument = (clientId, docId) => {
+        setClients(prev => prev.map(c => {
+          if (c.id === clientId) {
+            const updatedDocs = c.documents.map(d => {
+              if (d.id === docId) return { ...d, completed: !d.completed };
+              return d;
+            });
+            const total = updatedDocs.length;
+            const done = updatedDocs.filter(d => d.completed).length;
+            let status = c.status;
+            if (done === total) status = 'Listo';
+            else if (done > 0) status = 'En Proceso';
+            else status = 'Pendiente';
+
+            return { ...c, documents: updatedDocs, status };
+          }
+          return c;
+        }));
+      };
+
+      // Calculate days remaining
+      const getDaysRemaining = (dueDateStr) => {
+        if (!dueDateStr) return null;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const due = new Date(dueDateStr + 'T00:00:00');
+        const diffTime = due - today;
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      };
+
+      // Filtered clients
+      const filteredClients = useMemo(() => {
+        return clients.filter(c => 
+          c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          c.nit.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          c.phone.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }, [clients, searchTerm]);
+
+      useEffect(() => {
+        if (selectedClientForNotice) {
+          setNoticeTaxValue(selectedClientForNotice.taxAmount ? selectedClientForNotice.taxAmount.toString() : '0');
+          setNoticeDueDate(selectedClientForNotice.dueDate || '');
+          setNoticePhone(selectedClientForNotice.phone || '');
+        }
+      }, [selectedClientForNotice]);
+
+      // Formatted WhatsApp Message
+      const formattedWhatsAppMessage = useMemo(() => {
+        if (!selectedClientForNotice) return '';
+        const formattedAmount = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(noticeTaxValue) || 0);
+        const formattedDate = noticeDueDate ? new Date(noticeDueDate + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Por definir';
+
+        return `Estimado(a) *${selectedClientForNotice.name}*,\n\n` +
+               `Un cordial saludo. Le informamos que hemos finalizado el cálculo de su *Declaración de Renta*.\n\n` +
+               `📌 *Resumen de la Liquidación:*\n` +
+               `• *No. Cédula:* ${selectedClientForNotice.nit}\n` +
+               `• *Valor a Pagar:* ${formattedAmount}\n` +
+               `• *Fecha Límite de Pago:* ${formattedDate}\n\n` +
+               `Quedamos a su disposición para enviarle los recibos de pago y el formulario oficial correspondientes.\n\n` +
+               `Atentamente,\n` +
+               `*Su Asesor Contable - TaxDeclara Pro*`;
+      }, [selectedClientForNotice, noticeTaxValue, noticeDueDate]);
+
+      const cleanPhoneNumber = (phone) => {
+        if (!phone) return '';
+        let clean = phone.replace(/\D/g, '');
+        if (clean.length === 10 && !clean.startsWith('57')) {
+          clean = '57' + clean;
+        }
+        return clean;
+      };
+
+      const handleCopyWhatsAppText = () => {
+        if (!formattedWhatsAppMessage) return;
+        const textarea = document.createElement('textarea');
+        textarea.value = formattedWhatsAppMessage;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        setCopiedNotice(true);
+        setTimeout(() => setCopiedNotice(false), 3000);
+      };
+
+      return (
+        <div className="flex flex-col min-h-screen justify-between">
+          
+          {}
+          {/* TOP NAV: BINANCE STYLE (top-nav-dark) */}
+          <header className="bg-[#0b0e11] border-b border-[#2b3139] sticky top-0 z-50">
+            <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
+              
+              {/* BRAND LOGO - BINANCE YELLOW STYLING */}
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-[#FCD535] rounded-md flex items-center justify-center p-1.5 shadow-md">
+                  <svg viewBox="0 0 100 100" className="w-full h-full text-[#181a20] fill-current">
+                    <path d="M 28 15 H 62 L 78 31 V 80 C 78 83 75 86 72 86 H 28 C 25 86 22 83 22 80 V 21 C 22 18 25 15 28 15 Z" fill="none" stroke="#181a20" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M 62 15 V 31 H 78" fill="none" stroke="#181a20" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+                    <line x1="34" y1="38" x2="52" y2="38" stroke="#181a20" strokeWidth="7" strokeLinecap="round" />
+                    <line x1="34" y1="50" x2="66" y2="50" stroke="#181a20" strokeWidth="7" strokeLinecap="round" />
+                    <path d="M 50 66 L 60 76 L 82 52" fill="none" stroke="#181a20" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-black tracking-tight text-white uppercase">TaxDeclara</span>
+                  <span className="text-xl font-black tracking-tight text-[#FCD535] uppercase">Pro</span>
+                  <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-[#181a20] bg-[#FCD535] px-1.5 py-0.5 rounded font-num">
+                    DIAN 2026
+                  </span>
+                </div>
+              </div>
+
+              {/* HEADER STAT CALLOUTS (Binance Tabular Stat Style) */}
+              <div className="hidden lg:flex items-center gap-6 text-xs border-l border-[#2b3139] pl-6 font-num">
+                <div>
+                  <span className="text-[#707a8a] block text-[11px] font-medium">TOTAL CLIENTES</span>
+                  <span className="text-white font-bold text-base">{clients.length}</span>
+                </div>
+                <div>
+                  <span className="text-[#707a8a] block text-[11px] font-medium">COMPLETADOS</span>
+                  <span className="text-[#0ecb81] font-bold text-base">{clients.filter(c => c.status === 'Listo').length}</span>
+                </div>
+                <div>
+                  <span className="text-[#707a8a] block text-[11px] font-medium">PENDIENTES</span>
+                  <span className="text-[#FCD535] font-bold text-base">{clients.filter(c => c.status !== 'Listo').length}</span>
+                </div>
+              </div>
+
+              {/* QUICK NEW CLIENT BUTTON */}
+              <button
+                onClick={() => { setIsAddingClient(!isAddingClient); setActiveTab('clients'); }}
+                className="bg-[#FCD535] hover:bg-[#f0b90b] text-[#181a20] font-bold text-xs px-4 py-2 rounded-md transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
+              >
+                <i data-lucide="user-plus" className="w-4 h-4"></i>
+                <span>Nuevo Cliente</span>
+              </button>
+
+            </div>
+          </header>
+
+          {}
+          {/* MAIN CONTAINER */}
+          <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 w-full flex-grow">
+            
+            {/* HERO HERO STAT BAND: "FUNDS ARE SAFU" STYLE BAND */}
+            <div className="bg-[#1e2329] border border-[#2b3139] rounded-xl p-6 mb-6 shadow-xl relative overflow-hidden">
+              <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-[#FCD535]/5 rounded-full blur-2xl pointer-events-none"></div>
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-2 h-2 rounded-full bg-[#0ecb81] animate-pulse"></span>
+                    <span className="text-xs font-bold text-[#FCD535] tracking-widest uppercase">Sistema de Liquidación Tributaria</span>
+                  </div>
+                  <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+                    Gestión Inteligente de Declaraciones de Renta
+                  </h1>
+                  <p className="text-xs text-[#707a8a] mt-1 max-w-2xl">
+                    Control centralizado de cédulas, vencimientos del calendario tributario DIAN 2026, validación de soportes y avisos automatizados vía WhatsApp.
+                  </p>
+                </div>
+
+                {/* STAT CALLOUT CARD */}
+                <div className="flex gap-4 sm:gap-8 bg-[#0b0e11]/80 border border-[#2b3139] p-4 rounded-lg font-num shrink-0">
+                  <div>
+                    <span className="text-[#707a8a] text-[11px] block font-medium">Tasa de Cumplimiento</span>
+                    <span className="text-2xl font-bold text-[#0ecb81]">
+                      {clients.length > 0 ? Math.round((clients.filter(c => c.status === 'Listo').length / clients.length) * 100) : 0}%
+                    </span>
+                  </div>
+                  <div className="border-l border-[#2b3139] pl-4 sm:pl-8">
+                    <span className="text-[#707a8a] text-[11px] block font-medium">Próximo Vencimiento</span>
+                    <span className="text-xl font-bold text-[#FCD535]">
+                      {clients.length > 0 ? 'DIAN 2026' : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* GLOBAL NOTIFICATION BANNER */}
+            {importNotice && (
+              <div className="mb-6 p-4 bg-[#1e2329] border-l-4 border-[#0ecb81] text-[#eaecef] rounded-r-xl text-xs font-medium flex items-center justify-between shadow-lg animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <i data-lucide="check-circle" className="w-4 h-4 text-[#0ecb81]"></i>
+                  <span>{importNotice}</span>
+                </div>
+                <button onClick={() => setImportNotice(null)} className="text-[#707a8a] hover:text-white text-xs underline">
+                  Cerrar
+                </button>
+              </div>
+            )}
+
+            {}
+            {/* MAIN NAVIGATION TABS (Binance Dark Surface Tabs) */}
+            <nav className="flex flex-wrap gap-1 bg-[#1e2329] p-1.5 rounded-xl border border-[#2b3139] mb-6">
+              <button
+                onClick={() => setActiveTab('clients')}
+                className={`flex-1 min-w-[140px] py-2.5 px-4 rounded-lg font-bold text-xs transition-all duration-150 flex items-center justify-center gap-2 ${
+                  activeTab === 'clients'
+                    ? 'bg-[#FCD535] text-[#181a20] shadow-sm'
+                    : 'text-[#707a8a] hover:text-white hover:bg-[#2b3139]'
+                }`}
+              >
+                <i data-lucide="users" className="w-4 h-4"></i>
+                Base de Clientes
+              </button>
+
+              <button
+                onClick={() => setActiveTab('dueDates')}
+                className={`flex-1 min-w-[140px] py-2.5 px-4 rounded-lg font-bold text-xs transition-all duration-150 flex items-center justify-center gap-2 ${
+                  activeTab === 'dueDates'
+                    ? 'bg-[#FCD535] text-[#181a20] shadow-sm'
+                    : 'text-[#707a8a] hover:text-white hover:bg-[#2b3139]'
+                }`}
+              >
+                <i data-lucide="calendar" className="w-4 h-4"></i>
+                Recordatorios DIAN 2026
+              </button>
+
+              <button
+                onClick={() => setActiveTab('checklist')}
+                className={`flex-1 min-w-[140px] py-2.5 px-4 rounded-lg font-bold text-xs transition-all duration-150 flex items-center justify-center gap-2 ${
+                  activeTab === 'checklist'
+                    ? 'bg-[#FCD535] text-[#181a20] shadow-sm'
+                    : 'text-[#707a8a] hover:text-white hover:bg-[#2b3139]'
+                }`}
+              >
+                <i data-lucide="file-check" className="w-4 h-4"></i>
+                Checklist Documentos
+              </button>
+
+              <button
+                onClick={() => setActiveTab('whatsapp')}
+                className={`flex-1 min-w-[140px] py-2.5 px-4 rounded-lg font-bold text-xs transition-all duration-150 flex items-center justify-center gap-2 ${
+                  activeTab === 'whatsapp'
+                    ? 'bg-[#0ecb81] text-[#181a20] shadow-sm'
+                    : 'text-[#707a8a] hover:text-white hover:bg-[#2b3139]'
+                }`}
+              >
+                <i data-lucide="message-square" className="w-4 h-4"></i>
+                Aviso por WhatsApp
+              </button>
+            </nav>
+
+            {}
+            {/* TAB 1: CLIENTS BASE */}
+            {activeTab === 'clients' && (
+              <div className="space-y-6">
+                
+                {/* TOOLBAR */}
+                <div className="bg-[#1e2329] p-4 rounded-xl border border-[#2b3139] flex flex-col md:flex-row items-center justify-between gap-4">
+                  
+                  {/* Search Bar */}
+                  <div className="relative w-full md:w-80">
+                    <i data-lucide="search" className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#707a8a]"></i>
+                    <input
+                      type="text"
+                      placeholder="Buscar por Nombre, Cédula o Teléfono..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-[#0b0e11] border border-[#2b3139] rounded-lg text-xs text-white placeholder-[#707a8a] focus:outline-none focus:border-[#FCD535] font-num transition-all"
+                    />
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    
+                    <button
+                      onClick={handleDownloadTemplate}
+                      title="Descargar plantilla Excel"
+                      className="px-3 py-2 bg-[#2b3139] hover:bg-[#3a414b] text-[#eaecef] rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors border border-[#2b3139]"
+                    >
+                      <i data-lucide="download" className="w-3.5 h-3.5 text-[#FCD535]"></i>
+                      Plantilla Excel
+                    </button>
+
+                    <label className="cursor-pointer px-3.5 py-2 bg-[#2b3139] hover:bg-[#3a414b] text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border border-[#2b3139]">
+                      <i data-lucide="file-spreadsheet" className="w-4 h-4 text-[#0ecb81]"></i>
+                      <span>Importar Excel / CSV</span>
+                      <input
+                        type="file"
+                        accept=".xlsx, .xls, .csv"
+                        onChange={handleExcelImport}
+                        className="hidden"
+                      />
+                    </label>
+
+                    <button
+                      onClick={() => { setIsAddingClient(!isAddingClient); setEditingClientId(null); }}
+                      className="px-4 py-2 bg-[#FCD535] hover:bg-[#f0b90b] text-[#181a20] rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+                    >
+                      <i data-lucide={isAddingClient ? 'x' : 'user-plus'} className="w-4 h-4"></i>
+                      {isAddingClient ? 'Cancelar' : 'Nuevo Cliente'}
+                    </button>
+
+                  </div>
+                </div>
+
+                {/* FORM: ADD CLIENT */}
+                {isAddingClient && (
+                  <form onSubmit={handleCreateClient} className="bg-[#1e2329] p-5 rounded-xl border border-[#FCD535] shadow-2xl animate-fade-in">
+                    <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2 uppercase tracking-wide">
+                      <i data-lucide="user-plus" className="w-4 h-4 text-[#FCD535]"></i>
+                      Registrar Nuevo Cliente
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div>
+                        <label className="block text-xs font-medium text-[#707a8a] mb-1">Nombre Completo *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ej. Ana María Torres"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          className="w-full p-2.5 bg-[#0b0e11] border border-[#2b3139] rounded-lg text-xs text-white focus:border-[#FCD535] outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-[#707a8a] mb-1">No. Cedula *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Ej. 1019283746"
+                          value={formData.nit}
+                          onChange={(e) => handleNitChange(e.target.value)}
+                          className="w-full p-2.5 bg-[#0b0e11] border border-[#2b3139] rounded-lg text-xs text-white focus:border-[#FCD535] outline-none font-num"
+                        />
+                        <span className="text-[10px] text-[#707a8a] mt-1 block">Calcula la fecha DIAN automáticamente por cédula</span>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-[#707a8a] mb-1">Número Celular</label>
+                        <input
+                          type="text"
+                          placeholder="Ej. 3101234567"
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          className="w-full p-2.5 bg-[#0b0e11] border border-[#2b3139] rounded-lg text-xs text-white focus:border-[#FCD535] outline-none font-num"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingClient(false)}
+                        className="px-4 py-2 text-[#707a8a] bg-[#0b0e11] hover:bg-[#2b3139] rounded-lg text-xs font-semibold transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2 bg-[#FCD535] hover:bg-[#f0b90b] text-[#181a20] rounded-lg text-xs font-bold transition-all shadow-sm"
+                      >
+                        Guardar Cliente
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* CLIENTS TABLE: BINANCE MARKETS TABLE STYLE */}
+                <div className="bg-[#1e2329] rounded-xl border border-[#2b3139] overflow-hidden shadow-xl">
+                  <div className="p-4 bg-[#181a20] border-b border-[#2b3139] flex items-center justify-between">
+                    <h3 className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-2">
+                      <i data-lucide="users" className="w-4 h-4 text-[#FCD535]"></i>
+                      Listado de Contribuyentes
+                    </h3>
+                    <span className="text-[11px] text-[#707a8a] font-num">Registros activos: {filteredClients.length}</span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-[#181a20]/60 text-[#707a8a] font-semibold border-b border-[#2b3139] uppercase text-[11px] font-num">
+                          <th className="p-4">Cliente</th>
+                          <th className="p-4">No. Cédula</th>
+                          <th className="p-4">Celular</th>
+                          <th className="p-4">Vencimiento DIAN</th>
+                          <th className="p-4 text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#2b3139]">
+                        {filteredClients.length === 0 ? (
+                          <tr>
+                            <td colSpan="5" className="p-8 text-center text-[#707a8a] text-xs">
+                              No se encontraron clientes registrados.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredClients.map((client) => {
+                            const isEditing = editingClientId === client.id;
+                            const isDeleting = deletingClientId === client.id;
+
+                            if (isEditing) {
+                              return (
+                                <tr key={client.id} className="bg-[#2b3139]/50">
+                                  <td colSpan="5" className="p-4">
+                                    <form onSubmit={handleSaveEdit} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                                      <div>
+                                        <label className="block text-[10px] font-semibold text-[#707a8a] mb-1 uppercase">Nombre</label>
+                                        <input
+                                          type="text"
+                                          required
+                                          value={formData.name}
+                                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                          className="w-full p-2 bg-[#0b0e11] border border-[#FCD535] rounded text-xs text-white"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-semibold text-[#707a8a] mb-1 uppercase">No. Cédula</label>
+                                        <input
+                                          type="text"
+                                          required
+                                          value={formData.nit}
+                                          onChange={(e) => handleNitChange(e.target.value)}
+                                          className="w-full p-2 bg-[#0b0e11] border border-[#FCD535] rounded text-xs text-white font-num"
+                                        />
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex-1">
+                                          <label className="block text-[10px] font-semibold text-[#707a8a] mb-1 uppercase">Celular</label>
+                                          <input
+                                            type="text"
+                                            value={formData.phone}
+                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                            className="w-full p-2 bg-[#0b0e11] border border-[#FCD535] rounded text-xs text-white font-num"
+                                          />
+                                        </div>
+                                        <button
+                                          type="submit"
+                                          className="px-3 py-2 bg-[#FCD535] text-[#181a20] rounded text-xs font-bold"
+                                        >
+                                          Guardar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingClientId(null)}
+                                          className="px-3 py-2 bg-[#2b3139] text-[#eaecef] rounded text-xs font-semibold"
+                                        >
+                                          X
+                                        </button>
+                                      </div>
+                                    </form>
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            return (
+                              <tr key={client.id} className="hover:bg-[#2b3139]/40 transition-colors">
+                                <td className="p-4 font-bold text-white">
+                                  {client.name}
+                                </td>
+                                <td className="p-4 font-num text-[#eaecef] font-medium">
+                                  {client.nit}
+                                </td>
+                                <td className="p-4 font-num">
+                                  {client.phone ? (
+                                    <a
+                                      href={`https://wa.me/${cleanPhoneNumber(client.phone)}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-[#0ecb81] hover:underline font-semibold"
+                                    >
+                                      <i data-lucide="phone" className="w-3.5 h-3.5"></i>
+                                      {client.phone}
+                                    </a>
+                                  ) : (
+                                    <span className="text-[#707a8a] italic">Sin celular</span>
+                                  )}
+                                </td>
+                                <td className="p-4 font-num text-[#FCD535] font-semibold">
+                                  {client.dueDate ? new Date(client.dueDate + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin asignar'}
+                                </td>
+                                <td className="p-4 text-right">
+                                  {isDeleting ? (
+                                    <div className="inline-flex items-center gap-1.5 bg-[#f6465d]/10 p-1.5 rounded-lg border border-[#f6465d]/40">
+                                      <span className="text-xs text-[#f6465d] font-bold px-1">¿Eliminar?</span>
+                                      <button
+                                        onClick={() => handleConfirmDelete(client.id)}
+                                        className="px-2.5 py-1 bg-[#f6465d] hover:bg-[#d93a50] text-white rounded text-xs font-bold transition-colors shadow-sm"
+                                      >
+                                        Sí
+                                      </button>
+                                      <button
+                                        onClick={() => setDeletingClientId(null)}
+                                        className="px-2.5 py-1 bg-[#2b3139] hover:bg-[#3a414b] text-white rounded text-xs font-bold transition-colors"
+                                      >
+                                        No
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        onClick={() => handleStartEdit(client)}
+                                        title="Editar Cliente"
+                                        className="px-3 py-1.5 bg-[#FCD535]/15 hover:bg-[#FCD535] text-[#FCD535] hover:text-[#181a20] border border-[#FCD535]/50 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                                      >
+                                        <i data-lucide="pencil" className="w-3.5 h-3.5"></i>
+                                        <span>Editar</span>
+                                      </button>
+
+                                      <button
+                                        onClick={() => setDeletingClientId(client.id)}
+                                        title="Eliminar Cliente"
+                                        className="px-3 py-1.5 bg-[#f6465d]/15 hover:bg-[#f6465d] text-[#f6465d] hover:text-white border border-[#f6465d]/50 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                                      >
+                                        <i data-lucide="trash-2" className="w-3.5 h-3.5"></i>
+                                        <span>Eliminar</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {}
+            {/* TAB 2: DUE DATES & URGENCY */}
+            {activeTab === 'dueDates' && (
+              <div className="space-y-6">
+                
+                <div className="bg-[#1e2329] p-5 rounded-xl border border-[#2b3139] flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-bold text-white text-sm uppercase tracking-wider">Calendario Tributario DIAN 2026</h3>
+                    <p className="text-xs text-[#707a8a] mt-0.5">Mapeo oficial según los dos últimos dígitos del NIT / Cédula.</p>
+                  </div>
+
+                  <button
+                    onClick={handleRecalculateAllDates}
+                    className="px-4 py-2 bg-[#2b3139] hover:bg-[#3a414b] text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-all border border-[#2b3139]"
+                  >
+                    <i data-lucide="refresh-cw" className="w-3.5 h-3.5 text-[#FCD535]"></i>
+                    Recalcular Fechas DIAN 2026
+                  </button>
+                </div>
+
+                {/* TABLE SORTED BY URGENCY */}
+                <div className="bg-[#1e2329] rounded-xl border border-[#2b3139] overflow-hidden shadow-xl">
+                  <div className="p-4 bg-[#181a20] border-b border-[#2b3139] flex items-center justify-between">
+                    <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <i data-lucide="alert-triangle" className="w-4 h-4 text-[#FCD535]"></i>
+                      Prioridad de Vencimientos
+                    </span>
+                    <span className="text-xs text-[#707a8a] font-num">Orden: Vencidas &gt; Urgentes &gt; Próximas</span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-[#181a20]/60 text-[#707a8a] font-semibold border-b border-[#2b3139] uppercase text-[11px] font-num">
+                          <th className="p-4">Cliente</th>
+                          <th className="p-4">No. Cédula</th>
+                          <th className="p-4 text-center">Dígitos Clave</th>
+                          <th className="p-4">Vencimiento DIAN</th>
+                          <th className="p-4">Estado / Días</th>
+                          <th className="p-4 text-right">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#2b3139]">
+                        {[...clients]
+                          .sort((a, b) => {
+                            const dA = getDaysRemaining(a.dueDate);
+                            const dB = getDaysRemaining(b.dueDate);
+                            if (dA === null) return 1;
+                            if (dB === null) return -1;
+                            return dA - dB;
+                          })
+                          .map((client) => {
+                            const days = getDaysRemaining(client.dueDate);
+                            const digits = getLastTwoDigits(client.nit);
+                            
+                            let badgeStyle = 'bg-[#2b3139] text-[#eaecef]';
+                            let label = 'Al Día';
+
+                            if (days !== null) {
+                              if (days < 0) {
+                                badgeStyle = 'bg-[#f6465d]/10 text-[#f6465d] border border-[#f6465d]/30 font-bold';
+                                label = `Vencido (${Math.abs(days)} días)`;
+                              } else if (days <= 10) {
+                                badgeStyle = 'bg-[#FCD535]/10 text-[#FCD535] border border-[#FCD535]/30 font-bold';
+                                label = `Urgente (${days} días)`;
+                              } else if (days <= 30) {
+                                badgeStyle = 'bg-[#2b3139] text-white border border-[#2b3139]';
+                                label = `Próximo (${days} días)`;
+                              } else {
+                                badgeStyle = 'bg-[#0ecb81]/10 text-[#0ecb81] border border-[#0ecb81]/30';
+                                label = `${days} días`;
+                              }
+                            }
+
+                            return (
+                              <tr key={client.id} className="hover:bg-[#2b3139]/40 transition-colors">
+                                <td className="p-4 font-bold text-white">{client.name}</td>
+                                <td className="p-4 font-num text-[#eaecef]">{client.nit}</td>
+                                <td className="p-4 font-num font-bold text-[#FCD535] text-center">
+                                  <span className="bg-[#0b0e11] px-2.5 py-1 rounded border border-[#2b3139]">
+                                    {digits}
+                                  </span>
+                                </td>
+                                <td className="p-4 font-num text-white">
+                                  {client.dueDate ? new Date(client.dueDate + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin asignar'}
+                                </td>
+                                <td className="p-4 font-num">
+                                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] ${badgeStyle}`}>
+                                    {label}
+                                  </span>
+                                </td>
+                                <td className="p-4 text-right">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedClientForNotice(client);
+                                      setActiveTab('whatsapp');
+                                    }}
+                                    className="px-3 py-1.5 bg-[#0ecb81] hover:bg-[#0bb371] text-[#181a20] font-bold rounded text-xs transition-all inline-flex items-center gap-1.5 shadow-sm"
+                                  >
+                                    <i data-lucide="message-square" className="w-3.5 h-3.5"></i>
+                                    WhatsApp
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {}
+            {/* TAB 3: CHECKLIST DOCUMENTOS */}
+            {activeTab === 'checklist' && (
+              <div className="space-y-6">
+                
+                <div className="bg-[#1e2329] p-5 rounded-xl border border-[#2b3139]">
+                  <h3 className="font-bold text-white text-sm uppercase tracking-wider mb-1">Checklist de Documentos de Soporte</h3>
+                  <p className="text-xs text-[#707a8a]">Revisión y avance de expediente tributario por cada contribuyente.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {filteredClients.map((client) => {
+                    const total = client.documents.length;
+                    const completedCount = client.documents.filter(d => d.completed).length;
+                    const percentage = Math.round((completedCount / total) * 100);
+
+                    return (
+                      <div key={client.id} className="bg-[#1e2329] rounded-xl border border-[#2b3139] p-5 shadow-xl hover:border-[#FCD535]/50 transition-all">
+                        
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h4 className="font-bold text-white text-sm">{client.name}</h4>
+                            <span className="text-xs text-[#707a8a] font-num">Cédula: {client.nit}</span>
+                          </div>
+                          <span className={`text-xs font-bold font-num px-2.5 py-1 rounded-full ${
+                            percentage === 100 ? 'bg-[#0ecb81]/20 text-[#0ecb81] border border-[#0ecb81]/30' : 'bg-[#FCD535]/20 text-[#FCD535] border border-[#FCD535]/30'
+                          }`}>
+                            {percentage}% Recibido
+                          </span>
+                        </div>
+
+                        {/* Binance Progress Bar */}
+                        <div className="w-full bg-[#0b0e11] rounded-full h-2 mb-4 overflow-hidden border border-[#2b3139]">
+                          <div
+                            className={`h-2 rounded-full transition-all duration-300 ${percentage === 100 ? 'bg-[#0ecb81]' : 'bg-[#FCD535]'}`}
+                            style={{ width: `${percentage}%` }}
+                          ></div>
+                        </div>
+
+                        {/* Items */}
+                        <div className="space-y-2">
+                          {client.documents.map((doc) => (
+                            <label
+                              key={doc.id}
+                              className={`flex items-center justify-between p-2.5 rounded-lg text-xs cursor-pointer border transition-colors ${
+                                doc.completed
+                                  ? 'bg-[#0ecb81]/10 border-[#0ecb81]/30 text-white'
+                                  : 'bg-[#0b0e11] border-[#2b3139] text-[#707a8a] hover:border-[#3a414b]'
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={doc.completed}
+                                  onChange={() => toggleDocument(client.id, doc.id)}
+                                  className="w-4 h-4 text-[#FCD535] bg-[#0b0e11] border-[#2b3139] rounded focus:ring-0 focus:ring-offset-0"
+                                />
+                                <span className={doc.completed ? 'line-through text-[#707a8a]' : 'font-medium text-white'}>
+                                  {doc.name}
+                                </span>
+                              </span>
+                              {doc.required && (
+                                <span className="text-[10px] text-[#f6465d] font-bold bg-[#f6465d]/10 px-1.5 py-0.5 rounded border border-[#f6465d]/20">
+                                  Requerido
+                                </span>
+                              )}
+                            </label>
+                          ))}
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+
+              </div>
+            )}
+
+            {}
+            {/* TAB 4: WHATSAPP NOTICE GENERATOR */}
+            {activeTab === 'whatsapp' && (
+              <div className="space-y-6">
+                
+                <div className="bg-[#1e2329] p-5 rounded-xl border border-[#2b3139]">
+                  <h3 className="font-bold text-white text-sm uppercase tracking-wider mb-1 flex items-center gap-2">
+                    <i data-lucide="message-square" className="w-4 h-4 text-[#0ecb81]"></i>
+                    Generador de Aviso por WhatsApp
+                  </h3>
+                  <p className="text-xs text-[#707a8a]">Genera la notificación oficial con liquidación y fecha límite.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                  
+                  {/* CONFIG PANEL */}
+                  <div className="md:col-span-5 bg-[#1e2329] p-5 rounded-xl border border-[#2b3139] space-y-4">
+                    
+                    <div>
+                      <label className="block text-xs font-semibold text-[#707a8a] mb-1 uppercase">Seleccionar Cliente</label>
+                      <select
+                        value={selectedClientForNotice ? selectedClientForNotice.id : ''}
+                        onChange={(e) => {
+                          const found = clients.find(c => c.id === e.target.value);
+                          setSelectedClientForNotice(found || null);
+                        }}
+                        className="w-full p-2.5 bg-[#0b0e11] border border-[#2b3139] text-white rounded-lg text-xs focus:border-[#FCD535] outline-none"
+                      >
+                        <option value="">-- Seleccione un cliente --</option>
+                        {clients.map(c => (
+                          <option key={c.id} value={c.id}>{c.name} ({c.nit})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {selectedClientForNotice && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-[#707a8a] mb-1 uppercase">Valor Liquidado ($ COP)</label>
+                          <input
+                            type="number"
+                            value={noticeTaxValue}
+                            onChange={(e) => setNoticeTaxValue(e.target.value)}
+                            placeholder="Ej. 2500000"
+                            className="w-full p-2.5 bg-[#0b0e11] border border-[#2b3139] text-white rounded-lg text-xs focus:border-[#FCD535] outline-none font-num"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-[#707a8a] mb-1 uppercase">Fecha Límite de Pago</label>
+                          <input
+                            type="date"
+                            value={noticeDueDate}
+                            onChange={(e) => setNoticeDueDate(e.target.value)}
+                            className="w-full p-2.5 bg-[#0b0e11] border border-[#2b3139] text-white rounded-lg text-xs focus:border-[#FCD535] outline-none font-num"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-[#707a8a] mb-1 uppercase">Celular WhatsApp</label>
+                          <input
+                            type="text"
+                            value={noticePhone}
+                            onChange={(e) => setNoticePhone(e.target.value)}
+                            placeholder="Ej. 3101234567"
+                            className="w-full p-2.5 bg-[#0b0e11] border border-[#2b3139] text-white rounded-lg text-xs focus:border-[#FCD535] outline-none font-num"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                  </div>
+
+                  {/* PREVIEW & DISPATCH PANEL */}
+                  <div className="md:col-span-7 bg-[#1e2329] p-5 rounded-xl border border-[#2b3139] flex flex-col justify-between">
+                    
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center justify-between">
+                        <span>Vista Previa del Mensaje</span>
+                        {copiedNotice && (
+                          <span className="text-[#0ecb81] font-bold text-xs flex items-center gap-1">
+                            <i data-lucide="check" className="w-3.5 h-3.5"></i> ¡Copiado!
+                          </span>
+                        )}
+                      </h4>
+
+                      {selectedClientForNotice ? (
+                        <div className="bg-[#0b0e11] border border-[#2b3139] p-4 rounded-lg font-num text-xs text-[#eaecef] whitespace-pre-wrap leading-relaxed shadow-inner">
+                          {formattedWhatsAppMessage}
+                        </div>
+                      ) : (
+                        <div className="bg-[#0b0e11] border border-dashed border-[#2b3139] p-8 rounded-lg text-center text-[#707a8a] text-xs">
+                          Selecciona un cliente para visualizar la plantilla del mensaje.
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedClientForNotice && (
+                      <div className="flex flex-wrap items-center gap-3 mt-5">
+                        <button
+                          onClick={handleCopyWhatsAppText}
+                          className="px-4 py-2.5 bg-[#2b3139] hover:bg-[#3a414b] text-white rounded-lg text-xs font-bold flex items-center gap-2 transition-colors border border-[#2b3139]"
+                        >
+                          <i data-lucide="copy" className="w-4 h-4"></i>
+                          Copiar Texto
+                        </button>
+
+                        {noticePhone ? (
+                          <a
+                            href={`https://wa.me/${cleanPhoneNumber(noticePhone)}?text=${encodeURIComponent(formattedWhatsAppMessage)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex-1 py-2.5 bg-[#0ecb81] hover:bg-[#0bb371] text-[#181a20] rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+                          >
+                            <i data-lucide="send" className="w-4 h-4"></i>
+                            Abrir WhatsApp y Enviar
+                          </a>
+                        ) : (
+                          <span className="text-xs text-[#f6465d] font-medium">Ingresa un número celular para habilitar el envío.</span>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
+
+                </div>
+
+              </div>
+            )}
+
+          </main>
+
+          {}
+          {/* SIGNATURE BINANCE LIGHT FOOTER ON DARK BODY (Deliberate page reset) */}
+          <footer className="bg-[#fafafa] text-[#181a20] border-t border-[#eaecef] mt-12 py-8 px-4 md:px-6">
+            <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-[#181a20] rounded flex items-center justify-center p-1">
+                  <svg viewBox="0 0 100 100" className="w-full h-full text-[#FCD535] fill-current">
+                    <path d="M 28 15 H 62 L 78 31 V 80 C 78 83 75 86 72 86 H 28 C 25 86 22 83 22 80 V 21 C 22 18 25 15 28 15 Z" fill="none" stroke="#FCD535" strokeWidth="8" />
+                    <line x1="34" y1="38" x2="52" y2="38" stroke="#FCD535" strokeWidth="7" />
+                    <line x1="34" y1="50" x2="66" y2="50" stroke="#FCD535" strokeWidth="7" />
+                  </svg>
+                </div>
+                <span className="font-extrabold text-sm tracking-tight">TaxDeclara Pro</span>
+                <span className="text-xs text-[#707a8a]">© 2026 Todos los derechos reservados.</span>
+              </div>
+
+              <div className="flex items-center gap-6 text-xs text-[#707a8a] font-medium">
+                <a href="#dian" onClick={(e) => e.preventDefault()} className="hover:text-[#181a20]">Calendario Tributario DIAN</a>
+                <a href="#privacy" onClick={(e) => e.preventDefault()} className="hover:text-[#181a20]">Políticas de Datos</a>
+                <a href="#support" onClick={(e) => e.preventDefault()} className="hover:text-[#181a20]">Soporte Técnico</a>
+              </div>
+            </div>
+          </footer>
+
+        </div>
+      );
+    }
+
+    // Initialize React Root
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+
+    // Trigger Lucide icons rendering
+    setTimeout(() => {
+      if (window.lucide) {
+        window.lucide.createIcons();
+      }
+    }, 200);
+  </script>
+</body>
+</html>
