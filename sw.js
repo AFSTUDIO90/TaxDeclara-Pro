@@ -1,4 +1,4 @@
-const CACHE_NAME = 'taxdeclara-v3';
+const CACHE_NAME = 'taxdeclara-v1';
 const ASSETS = [
   './',
   './index.html',

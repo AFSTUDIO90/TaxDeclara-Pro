@@ -15,11 +15,8 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
   
-  <!-- Google Fonts: Inter (BinanceNova substitute) + IBM Plex Sans (BinancePlex substitute for financial numbers) -->
+  <!-- Google Fonts: Inter + IBM Plex Sans for numbers -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -31,21 +28,21 @@
         extend: {
           colors: {
             binance: {
-              canvas: '#0b0e11',        // {colors.canvas-dark}
-              card: '#1e2329',          // {colors.surface-card-dark}
-              elevated: '#2b3139',      // {colors.surface-elevated-dark}
-              yellow: '#FCD535',        // {colors.primary} Binance Yellow
-              yellowHover: '#f0b90b',   // {colors.primary-active}
-              yellowDisabled: '#3a3a1f',// {colors.primary-disabled}
-              ink: '#181a20',           // {colors.ink}
-              hairline: '#2b3139',      // {colors.hairline-on-dark}
-              hairlineLight: '#eaecef', // {colors.hairline-on-light}
-              bodyText: '#eaecef',      // {colors.body}
-              muted: '#707a8a',         // {colors.muted}
-              mutedStrong: '#929aa5',   // {colors.muted-strong}
-              green: '#0ecb81',        // {colors.trading-up}
-              red: '#f6465d',          // {colors.trading-down}
-              footer: '#fafafa',       // {colors.surface-soft-light}
+              canvas: '#0b0e11',        
+              card: '#1e2329',          
+              elevated: '#2b3139',      
+              yellow: '#FCD535',        
+              yellowHover: '#f0b90b',   
+              yellowDisabled: '#3a3a1f',
+              ink: '#181a20',           
+              hairline: '#2b3139',      
+              hairlineLight: '#eaecef', 
+              bodyText: '#eaecef',      
+              muted: '#707a8a',         
+              mutedStrong: '#929aa5',   
+              green: '#0ecb81',        
+              red: '#f6465d',          
+              footer: '#fafafa',       
             }
           },
           fontFamily: {
@@ -58,7 +55,6 @@
   </script>
 
   <style>
-    /* Custom Binance styling rules */
     body {
       font-family: 'Inter', sans-serif;
       background-color: #0b0e11;
@@ -70,7 +66,6 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* Custom scrollbars matching dark interface */
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -93,6 +88,45 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
+    // Native SVG Icon Component to avoid external DOM mutation issues
+    const Icon = ({ name, className = "w-4 h-4" }) => {
+      const icons = {
+        'user-plus': <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></>,
+        'users': <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
+        'calendar': <><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
+        'file-check': <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></>,
+        'message-square': <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>,
+        'search': <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
+        'download': <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
+        'file-spreadsheet': <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></>,
+        'x': <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
+        'pencil': <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>,
+        'trash-2': <><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>,
+        'refresh-cw': <><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></>,
+        'alert-triangle': <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>,
+        'phone': <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>,
+        'check': <polyline points="20 6 9 17 4 12"/>,
+        'copy': <><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>,
+        'send': <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
+        'check-circle': <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>
+      };
+
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className={className}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          {icons[name] || null}
+        </svg>
+      );
+    };
+
     // Default required documents checklist for income tax declarations
     const DEFAULT_DOCUMENTS = [
       { id: 'cert_ingresos', name: 'Certificado de Ingresos y Retenciones (Formulario 220)', required: true },
@@ -105,7 +139,7 @@
       { id: 'dependientes', name: 'Soportes de Dependientes Económicos (Registro Civil/Certificados)', required: false }
     ];
 
-    // Official DIAN 2026 Due Date Calculation Rule (Persona Natural)
+    // Official DIAN 2026 Due Date Calculation Rule
     function calculateDianDueDate(nit) {
       if (!nit) return '';
       const cleanNit = String(nit).replace(/\D/g, '');
@@ -178,7 +212,6 @@
     }
 
     function App() {
-      // Load initial state from LocalStorage
       const [clients, setClients] = useState(() => {
         const saved = localStorage.getItem('tax_declara_clients_v3');
         if (saved) {
@@ -208,45 +241,32 @@
         ];
       });
 
-      const [activeTab, setActiveTab] = useState('clients'); // 'clients', 'dueDates', 'checklist', 'whatsapp'
+      const [activeTab, setActiveTab] = useState('clients'); 
       const [searchTerm, setSearchTerm] = useState('');
       
-      // Modal / Form States
       const [isAddingClient, setIsAddingClient] = useState(false);
       const [editingClientId, setEditingClientId] = useState(null);
       const [deletingClientId, setDeletingClientId] = useState(null);
       
-      // Client Form
       const [formData, setFormData] = useState({ name: '', nit: '', phone: '' });
 
-      // Selected client for WhatsApp notice generator
       const [selectedClientForNotice, setSelectedClientForNotice] = useState(null);
       const [noticeTaxValue, setNoticeTaxValue] = useState('');
       const [noticeDueDate, setNoticeDueDate] = useState('');
       const [noticePhone, setNoticePhone] = useState('');
       const [copiedNotice, setCopiedNotice] = useState(false);
       
-      // Notification banner
       const [importNotice, setImportNotice] = useState(null);
-
-      // Re-initialize Lucide icons on state changes
-      useEffect(() => {
-        if (window.lucide) {
-          window.lucide.createIcons();
-        }
-      });
 
       // Save to LocalStorage
       useEffect(() => {
         localStorage.setItem('tax_declara_clients_v3', JSON.stringify(clients));
       }, [clients]);
 
-      // Handle NIT change
       const handleNitChange = (val) => {
         setFormData(prev => ({ ...prev, nit: val }));
       };
 
-      // Create new client
       const handleCreateClient = (e) => {
         e.preventDefault();
         if (!formData.name || !formData.nit) return;
@@ -269,7 +289,6 @@
         setIsAddingClient(false);
       };
 
-      // Start editing
       const handleStartEdit = (client) => {
         setEditingClientId(client.id);
         setFormData({
@@ -279,7 +298,6 @@
         });
       };
 
-      // Save edit
       const handleSaveEdit = (e) => {
         e.preventDefault();
         const computedDueDate = calculateDianDueDate(formData.nit);
@@ -301,13 +319,11 @@
         setFormData({ name: '', nit: '', phone: '' });
       };
 
-      // Confirm Delete
       const handleConfirmDelete = (id) => {
         setClients(prev => prev.filter(c => c.id !== id));
         setDeletingClientId(null);
       };
 
-      // Recalculate all dates according to DIAN 2026
       const handleRecalculateAllDates = () => {
         setClients(prev => prev.map(c => ({
           ...c,
@@ -317,7 +333,6 @@
         setTimeout(() => setImportNotice(null), 4000);
       };
 
-      // Excel Import handler
       const handleExcelImport = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -404,7 +419,6 @@
         e.target.value = '';
       };
 
-      // Download Excel template
       const handleDownloadTemplate = () => {
         const sampleData = [
           ['Nombre', 'No. Cedula', 'Numero Celular'],
@@ -418,7 +432,6 @@
         XLSX.writeFile(wb, "Plantilla_Importacion_Clientes_TaxDeclara.xlsx");
       };
 
-      // Document checklist toggle
       const toggleDocument = (clientId, docId) => {
         setClients(prev => prev.map(c => {
           if (c.id === clientId) {
@@ -439,7 +452,6 @@
         }));
       };
 
-      // Calculate days remaining
       const getDaysRemaining = (dueDateStr) => {
         if (!dueDateStr) return null;
         const today = new Date();
@@ -449,7 +461,6 @@
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       };
 
-      // Filtered clients
       const filteredClients = useMemo(() => {
         return clients.filter(c => 
           c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -466,22 +477,25 @@
         }
       }, [selectedClientForNotice]);
 
-      // Formatted WhatsApp Message
       const formattedWhatsAppMessage = useMemo(() => {
         if (!selectedClientForNotice) return '';
-        const formattedAmount = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(noticeTaxValue) || 0);
-        const formattedDate = noticeDueDate ? new Date(noticeDueDate + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Por definir';
+        const clientName = selectedClientForNotice.name || 'Cliente';
+        const formattedDate = noticeDueDate 
+          ? new Date(noticeDueDate + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }) 
+          : '';
 
-        return `Estimado(a) *${selectedClientForNotice.name}*,\n\n` +
-               `Un cordial saludo. Le informamos que hemos finalizado el cálculo de su *Declaración de Renta*.\n\n` +
-               `📌 *Resumen de la Liquidación:*\n` +
-               `• *No. Cédula:* ${selectedClientForNotice.nit}\n` +
-               `• *Valor a Pagar:* ${formattedAmount}\n` +
-               `• *Fecha Límite de Pago:* ${formattedDate}\n\n` +
-               `Quedamos a su disposición para enviarle los recibos de pago y el formulario oficial correspondientes.\n\n` +
-               `Atentamente,\n` +
-               `*Su Asesor Contable - TaxDeclara Pro*`;
-      }, [selectedClientForNotice, noticeTaxValue, noticeDueDate]);
+        const dateInfo = formattedDate ? ` (Fecha límite: ${formattedDate})` : '';
+
+        return `🚨 *¡ATENCIÓN! Tu Declaración de Renta está próxima a vencer*\n\n` +
+               `Hola, *${clientName}* 👋\n\n` +
+               `⏰ *Tu plazo para presentar la Declaración de Renta se acerca${dateInfo}.* No esperes hasta el último momento.\n\n` +
+               `Podemos ayudarte a *revisar si estás obligado a declarar y realizar tu declaración de renta* de manera rápida y sencilla. ✅\n\n` +
+               `⚠️ Evita contratiempos y posibles sanciones por presentar fuera del plazo.\n\n` +
+               `📲 *Si quieres que revisemos tu caso, responde este mensaje con:*\n\n` +
+               `👉 *QUIERO DECLARAR*\n\n` +
+               `Y te indicamos inmediatamente qué necesitamos para ayudarte.\n\n` +
+               `*¡Hazlo hoy y evita dejarlo para última hora!* 🚀`;
+      }, [selectedClientForNotice, noticeDueDate]);
 
       const cleanPhoneNumber = (phone) => {
         if (!phone) return '';
@@ -507,12 +521,10 @@
       return (
         <div className="flex flex-col min-h-screen justify-between">
           
-          {}
-          {/* TOP NAV: BINANCE STYLE (top-nav-dark) */}
+          {/* TOP NAV */}
           <header className="bg-[#0b0e11] border-b border-[#2b3139] sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
               
-              {/* BRAND LOGO - BINANCE YELLOW STYLING */}
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-[#FCD535] rounded-md flex items-center justify-center p-1.5 shadow-md">
                   <svg viewBox="0 0 100 100" className="w-full h-full text-[#181a20] fill-current">
@@ -533,7 +545,6 @@
                 </div>
               </div>
 
-              {/* HEADER STAT CALLOUTS (Binance Tabular Stat Style) */}
               <div className="hidden lg:flex items-center gap-6 text-xs border-l border-[#2b3139] pl-6 font-num">
                 <div>
                   <span className="text-[#707a8a] block text-[11px] font-medium">TOTAL CLIENTES</span>
@@ -549,23 +560,12 @@
                 </div>
               </div>
 
-              {/* QUICK NEW CLIENT BUTTON */}
-              <button
-                onClick={() => { setIsAddingClient(!isAddingClient); setActiveTab('clients'); }}
-                className="bg-[#FCD535] hover:bg-[#f0b90b] text-[#181a20] font-bold text-xs px-4 py-2 rounded-md transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
-              >
-                <i data-lucide="user-plus" className="w-4 h-4"></i>
-                <span>Nuevo Cliente</span>
-              </button>
-
             </div>
           </header>
 
-          {}
           {/* MAIN CONTAINER */}
           <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 w-full flex-grow">
             
-            {/* HERO HERO STAT BAND: "FUNDS ARE SAFU" STYLE BAND */}
             <div className="bg-[#1e2329] border border-[#2b3139] rounded-xl p-6 mb-6 shadow-xl relative overflow-hidden">
               <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-[#FCD535]/5 rounded-full blur-2xl pointer-events-none"></div>
               
@@ -583,7 +583,6 @@
                   </p>
                 </div>
 
-                {/* STAT CALLOUT CARD */}
                 <div className="flex gap-4 sm:gap-8 bg-[#0b0e11]/80 border border-[#2b3139] p-4 rounded-lg font-num shrink-0">
                   <div>
                     <span className="text-[#707a8a] text-[11px] block font-medium">Tasa de Cumplimiento</span>
@@ -601,11 +600,10 @@
               </div>
             </div>
 
-            {/* GLOBAL NOTIFICATION BANNER */}
             {importNotice && (
               <div className="mb-6 p-4 bg-[#1e2329] border-l-4 border-[#0ecb81] text-[#eaecef] rounded-r-xl text-xs font-medium flex items-center justify-between shadow-lg animate-fade-in">
                 <div className="flex items-center gap-2">
-                  <i data-lucide="check-circle" className="w-4 h-4 text-[#0ecb81]"></i>
+                  <Icon name="check-circle" className="w-4 h-4 text-[#0ecb81]" />
                   <span>{importNotice}</span>
                 </div>
                 <button onClick={() => setImportNotice(null)} className="text-[#707a8a] hover:text-white text-xs underline">
@@ -614,8 +612,7 @@
               </div>
             )}
 
-            {}
-            {/* MAIN NAVIGATION TABS (Binance Dark Surface Tabs) */}
+            {/* NAVIGATION TABS */}
             <nav className="flex flex-wrap gap-1 bg-[#1e2329] p-1.5 rounded-xl border border-[#2b3139] mb-6">
               <button
                 onClick={() => setActiveTab('clients')}
@@ -625,7 +622,7 @@
                     : 'text-[#707a8a] hover:text-white hover:bg-[#2b3139]'
                 }`}
               >
-                <i data-lucide="users" className="w-4 h-4"></i>
+                <Icon name="users" className="w-4 h-4" />
                 Base de Clientes
               </button>
 
@@ -637,7 +634,7 @@
                     : 'text-[#707a8a] hover:text-white hover:bg-[#2b3139]'
                 }`}
               >
-                <i data-lucide="calendar" className="w-4 h-4"></i>
+                <Icon name="calendar" className="w-4 h-4" />
                 Recordatorios DIAN 2026
               </button>
 
@@ -649,7 +646,7 @@
                     : 'text-[#707a8a] hover:text-white hover:bg-[#2b3139]'
                 }`}
               >
-                <i data-lucide="file-check" className="w-4 h-4"></i>
+                <Icon name="file-check" className="w-4 h-4" />
                 Checklist Documentos
               </button>
 
@@ -661,22 +658,19 @@
                     : 'text-[#707a8a] hover:text-white hover:bg-[#2b3139]'
                 }`}
               >
-                <i data-lucide="message-square" className="w-4 h-4"></i>
+                <Icon name="message-square" className="w-4 h-4" />
                 Aviso por WhatsApp
               </button>
             </nav>
 
-            {}
             {/* TAB 1: CLIENTS BASE */}
             {activeTab === 'clients' && (
               <div className="space-y-6">
                 
-                {/* TOOLBAR */}
                 <div className="bg-[#1e2329] p-4 rounded-xl border border-[#2b3139] flex flex-col md:flex-row items-center justify-between gap-4">
                   
-                  {/* Search Bar */}
                   <div className="relative w-full md:w-80">
-                    <i data-lucide="search" className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#707a8a]"></i>
+                    <Icon name="search" className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#707a8a]" />
                     <input
                       type="text"
                       placeholder="Buscar por Nombre, Cédula o Teléfono..."
@@ -686,7 +680,6 @@
                     />
                   </div>
 
-                  {/* Actions */}
                   <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                     
                     <button
@@ -694,12 +687,12 @@
                       title="Descargar plantilla Excel"
                       className="px-3 py-2 bg-[#2b3139] hover:bg-[#3a414b] text-[#eaecef] rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors border border-[#2b3139]"
                     >
-                      <i data-lucide="download" className="w-3.5 h-3.5 text-[#FCD535]"></i>
+                      <Icon name="download" className="w-3.5 h-3.5 text-[#FCD535]" />
                       Plantilla Excel
                     </button>
 
                     <label className="cursor-pointer px-3.5 py-2 bg-[#2b3139] hover:bg-[#3a414b] text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border border-[#2b3139]">
-                      <i data-lucide="file-spreadsheet" className="w-4 h-4 text-[#0ecb81]"></i>
+                      <Icon name="file-spreadsheet" className="w-4 h-4 text-[#0ecb81]" />
                       <span>Importar Excel / CSV</span>
                       <input
                         type="file"
@@ -713,7 +706,7 @@
                       onClick={() => { setIsAddingClient(!isAddingClient); setEditingClientId(null); }}
                       className="px-4 py-2 bg-[#FCD535] hover:bg-[#f0b90b] text-[#181a20] rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
                     >
-                      <i data-lucide={isAddingClient ? 'x' : 'user-plus'} className="w-4 h-4"></i>
+                      <Icon name={isAddingClient ? 'x' : 'user-plus'} className="w-4 h-4" />
                       {isAddingClient ? 'Cancelar' : 'Nuevo Cliente'}
                     </button>
 
@@ -724,7 +717,7 @@
                 {isAddingClient && (
                   <form onSubmit={handleCreateClient} className="bg-[#1e2329] p-5 rounded-xl border border-[#FCD535] shadow-2xl animate-fade-in">
                     <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2 uppercase tracking-wide">
-                      <i data-lucide="user-plus" className="w-4 h-4 text-[#FCD535]"></i>
+                      <Icon name="user-plus" className="w-4 h-4 text-[#FCD535]" />
                       Registrar Nuevo Cliente
                     </h3>
 
@@ -784,11 +777,11 @@
                   </form>
                 )}
 
-                {/* CLIENTS TABLE: BINANCE MARKETS TABLE STYLE */}
+                {/* CLIENTS TABLE */}
                 <div className="bg-[#1e2329] rounded-xl border border-[#2b3139] overflow-hidden shadow-xl">
                   <div className="p-4 bg-[#181a20] border-b border-[#2b3139] flex items-center justify-between">
                     <h3 className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-2">
-                      <i data-lucide="users" className="w-4 h-4 text-[#FCD535]"></i>
+                      <Icon name="users" className="w-4 h-4 text-[#FCD535]" />
                       Listado de Contribuyentes
                     </h3>
                     <span className="text-[11px] text-[#707a8a] font-num">Registros activos: {filteredClients.length}</span>
@@ -888,7 +881,7 @@
                                       rel="noreferrer"
                                       className="inline-flex items-center gap-1.5 text-[#0ecb81] hover:underline font-semibold"
                                     >
-                                      <i data-lucide="phone" className="w-3.5 h-3.5"></i>
+                                      <Icon name="phone" className="w-3.5 h-3.5" />
                                       {client.phone}
                                     </a>
                                   ) : (
@@ -922,7 +915,7 @@
                                         title="Editar Cliente"
                                         className="px-3 py-1.5 bg-[#FCD535]/15 hover:bg-[#FCD535] text-[#FCD535] hover:text-[#181a20] border border-[#FCD535]/50 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
                                       >
-                                        <i data-lucide="pencil" className="w-3.5 h-3.5"></i>
+                                        <Icon name="pencil" className="w-3.5 h-3.5" />
                                         <span>Editar</span>
                                       </button>
 
@@ -931,7 +924,7 @@
                                         title="Eliminar Cliente"
                                         className="px-3 py-1.5 bg-[#f6465d]/15 hover:bg-[#f6465d] text-[#f6465d] hover:text-white border border-[#f6465d]/50 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
                                       >
-                                        <i data-lucide="trash-2" className="w-3.5 h-3.5"></i>
+                                        <Icon name="trash-2" className="w-3.5 h-3.5" />
                                         <span>Eliminar</span>
                                       </button>
                                     </div>
@@ -949,8 +942,7 @@
               </div>
             )}
 
-            {}
-            {/* TAB 2: DUE DATES & URGENCY */}
+            {/* TAB 2: DUE DATES */}
             {activeTab === 'dueDates' && (
               <div className="space-y-6">
                 
@@ -964,16 +956,15 @@
                     onClick={handleRecalculateAllDates}
                     className="px-4 py-2 bg-[#2b3139] hover:bg-[#3a414b] text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-all border border-[#2b3139]"
                   >
-                    <i data-lucide="refresh-cw" className="w-3.5 h-3.5 text-[#FCD535]"></i>
+                    <Icon name="refresh-cw" className="w-3.5 h-3.5 text-[#FCD535]" />
                     Recalcular Fechas DIAN 2026
                   </button>
                 </div>
 
-                {/* TABLE SORTED BY URGENCY */}
                 <div className="bg-[#1e2329] rounded-xl border border-[#2b3139] overflow-hidden shadow-xl">
                   <div className="p-4 bg-[#181a20] border-b border-[#2b3139] flex items-center justify-between">
                     <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                      <i data-lucide="alert-triangle" className="w-4 h-4 text-[#FCD535]"></i>
+                      <Icon name="alert-triangle" className="w-4 h-4 text-[#FCD535]" />
                       Prioridad de Vencimientos
                     </span>
                     <span className="text-xs text-[#707a8a] font-num">Orden: Vencidas &gt; Urgentes &gt; Próximas</span>
@@ -1048,7 +1039,7 @@
                                     }}
                                     className="px-3 py-1.5 bg-[#0ecb81] hover:bg-[#0bb371] text-[#181a20] font-bold rounded text-xs transition-all inline-flex items-center gap-1.5 shadow-sm"
                                   >
-                                    <i data-lucide="message-square" className="w-3.5 h-3.5"></i>
+                                    <Icon name="message-square" className="w-3.5 h-3.5" />
                                     WhatsApp
                                   </button>
                                 </td>
@@ -1063,8 +1054,7 @@
               </div>
             )}
 
-            {}
-            {/* TAB 3: CHECKLIST DOCUMENTOS */}
+            {/* TAB 3: CHECKLIST */}
             {activeTab === 'checklist' && (
               <div className="space-y-6">
                 
@@ -1094,7 +1084,6 @@
                           </span>
                         </div>
 
-                        {/* Binance Progress Bar */}
                         <div className="w-full bg-[#0b0e11] rounded-full h-2 mb-4 overflow-hidden border border-[#2b3139]">
                           <div
                             className={`h-2 rounded-full transition-all duration-300 ${percentage === 100 ? 'bg-[#0ecb81]' : 'bg-[#FCD535]'}`}
@@ -1102,7 +1091,6 @@
                           ></div>
                         </div>
 
-                        {/* Items */}
                         <div className="space-y-2">
                           {client.documents.map((doc) => (
                             <label
@@ -1141,14 +1129,13 @@
               </div>
             )}
 
-            {}
-            {/* TAB 4: WHATSAPP NOTICE GENERATOR */}
+            {/* TAB 4: WHATSAPP NOTICE */}
             {activeTab === 'whatsapp' && (
               <div className="space-y-6">
                 
                 <div className="bg-[#1e2329] p-5 rounded-xl border border-[#2b3139]">
                   <h3 className="font-bold text-white text-sm uppercase tracking-wider mb-1 flex items-center gap-2">
-                    <i data-lucide="message-square" className="w-4 h-4 text-[#0ecb81]"></i>
+                    <Icon name="message-square" className="w-4 h-4 text-[#0ecb81]" />
                     Generador de Aviso por WhatsApp
                   </h3>
                   <p className="text-xs text-[#707a8a]">Genera la notificación oficial con liquidación y fecha límite.</p>
@@ -1156,7 +1143,6 @@
 
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                   
-                  {/* CONFIG PANEL */}
                   <div className="md:col-span-5 bg-[#1e2329] p-5 rounded-xl border border-[#2b3139] space-y-4">
                     
                     <div>
@@ -1214,7 +1200,6 @@
 
                   </div>
 
-                  {/* PREVIEW & DISPATCH PANEL */}
                   <div className="md:col-span-7 bg-[#1e2329] p-5 rounded-xl border border-[#2b3139] flex flex-col justify-between">
                     
                     <div>
@@ -1222,7 +1207,7 @@
                         <span>Vista Previa del Mensaje</span>
                         {copiedNotice && (
                           <span className="text-[#0ecb81] font-bold text-xs flex items-center gap-1">
-                            <i data-lucide="check" className="w-3.5 h-3.5"></i> ¡Copiado!
+                            <Icon name="check" className="w-3.5 h-3.5" /> ¡Copiado!
                           </span>
                         )}
                       </h4>
@@ -1244,7 +1229,7 @@
                           onClick={handleCopyWhatsAppText}
                           className="px-4 py-2.5 bg-[#2b3139] hover:bg-[#3a414b] text-white rounded-lg text-xs font-bold flex items-center gap-2 transition-colors border border-[#2b3139]"
                         >
-                          <i data-lucide="copy" className="w-4 h-4"></i>
+                          <Icon name="copy" className="w-4 h-4" />
                           Copiar Texto
                         </button>
 
@@ -1255,7 +1240,7 @@
                             rel="noreferrer"
                             className="flex-1 py-2.5 bg-[#0ecb81] hover:bg-[#0bb371] text-[#181a20] rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
                           >
-                            <i data-lucide="send" className="w-4 h-4"></i>
+                            <Icon name="send" className="w-4 h-4" />
                             Abrir WhatsApp y Enviar
                           </a>
                         ) : (
@@ -1273,8 +1258,7 @@
 
           </main>
 
-          {}
-          {/* SIGNATURE BINANCE LIGHT FOOTER ON DARK BODY (Deliberate page reset) */}
+          {/* FOOTER */}
           <footer className="bg-[#fafafa] text-[#181a20] border-t border-[#eaecef] mt-12 py-8 px-4 md:px-6">
             <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-2">
@@ -1304,13 +1288,6 @@
     // Initialize React Root
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
-
-    // Trigger Lucide icons rendering
-    setTimeout(() => {
-      if (window.lucide) {
-        window.lucide.createIcons();
-      }
-    }, 200);
   </script>
 </body>
 </html>
